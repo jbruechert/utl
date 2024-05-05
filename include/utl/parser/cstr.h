@@ -13,7 +13,7 @@
 namespace utl {
 
 struct size {
-  explicit size(size_t s) : size_(s) {}
+  constexpr explicit size(size_t s) : size_(s) {}
   size_t size_;
 };
 
@@ -24,103 +24,108 @@ struct field {
 };
 
 struct cstr {
-  cstr() : str(nullptr), len(0) {}
+  constexpr cstr() : str(nullptr), len(0) {}
   cstr(std::string const& s) : str(s.data()), len(s.length()) {}
-  cstr(std::string_view const& s) : str(s.data()), len(s.length()) {}
-  cstr(char const* s) : str(s), len(s ? std::strlen(str) : 0) {}
-  cstr(char const* s, size_t l) : str(s), len(l) {}
+  constexpr cstr(std::string_view const& s) : str(s.data()), len(s.length()) {}
+  constexpr cstr(char const* s)
+      : str(s), len(s ? std::char_traits<char>::length(str) : 0) {}
+  constexpr cstr(char const* s, size_t l) : str(s), len(l) {}
   cstr(unsigned char const* s, size_t l)
       : str(reinterpret_cast<char const*>(s)), len(l) {}
-  cstr(char const* begin, char const* end)
+  constexpr cstr(char const* begin, char const* end)
       : str(begin), len(static_cast<size_t>(end - begin)) {
     assert(begin <= end);
   }
-  cstr(std::nullptr_t, size_t) : str(nullptr), len(0) {}
-  cstr& operator++() {
+  constexpr cstr(std::nullptr_t, size_t) : str(nullptr), len(0) {}
+  constexpr inline cstr& operator++() {
     ++str;
     --len;
     return *this;
   }
-  cstr operator+(size_t inc) {
+  constexpr cstr operator+(size_t inc) {
     cstr tmp;
     tmp.str = str + inc;
     tmp.len = len - inc;
     return tmp;
   }
-  cstr& operator+=(size_t inc) {
+  constexpr cstr& operator+=(size_t inc) {
     str = str + inc;
     len = len - inc;
     return *this;
   }
-  bool operator==(cstr const& s) const {
+  constexpr bool operator==(cstr const& s) const {
     if (len != s.len) {
       return false;
     } else if (len == 0) {
       return true;
     } else {
-      return strncmp(str, s.str, len) == 0;
+      return view() == s.view();
     }
   }
-  bool operator!=(cstr const& s) const { return !operator==(s); }
+  constexpr bool operator!=(cstr const& s) const { return !operator==(s); }
   bool operator<(cstr const& s) const {
     return std::lexicographical_compare(str, str + len, s.str, s.str + s.len);
   }
-  char operator[](size_t i) const { return str[i]; }
-  explicit operator bool() const { return valid(); }
-  bool valid() const { return len != 0 && str != nullptr; }
-  char const* begin() const { return str; }
-  char const* end() const { return str + len; }
-  friend char const* begin(cstr const& s) { return s.begin(); }
-  friend char const* end(cstr const& s) { return s.end(); }
-  void assign(char const* s, size_t l) {
+  constexpr char operator[](size_t i) const { return str[i]; }
+  constexpr inline explicit operator bool() const { return valid(); }
+  constexpr inline bool valid() const { return len != 0 && str != nullptr; }
+  constexpr char const* begin() const { return str; }
+  constexpr char const* end() const { return str + len; }
+  constexpr friend char const* begin(cstr const& s) { return s.begin(); }
+  constexpr friend char const* end(cstr const& s) { return s.end(); }
+  constexpr void assign(char const* s, size_t l) {
     str = s;
     len = l;
   }
-  cstr substr(size_t position, size s) const {
+  constexpr cstr substr(size_t position, size s) const {
     auto const adjusted_position = std::min(position, len);
     auto const adjusted_size = std::min(s.size_, len - adjusted_position);
     return {str + adjusted_position, adjusted_size};
   }
-  cstr substr(size_t begin, size_t end) const {
+  constexpr cstr substr(size_t begin, size_t end) const {
     auto const adjusted_begin = std::min(begin, len);
     auto const adjusted_end = std::min(end, len);
     return {str + adjusted_begin, adjusted_end - adjusted_begin};
   }
-  cstr substr(size_t begin) const { return {str + begin, len - begin}; }
-  cstr substr(field const& f) const {
+  constexpr cstr substr(size_t begin) const {
+    return {str + begin, len - begin};
+  }
+  constexpr cstr substr(field const& f) const {
     return (f.size == field::MAX_SIZE) ? substr(f.from)
                                        : substr(f.from, size(f.size));
   }
-  bool contains(cstr needle) const {
+  constexpr bool contains(cstr needle) const {
     return view().find(needle.view()) != std::string_view::npos;
   }
-  bool starts_with(cstr prefix) const {
+  constexpr bool starts_with(cstr prefix) const {
     if (len < prefix.len) {
       return false;
     }
     return substr(0, size(prefix.len)) == prefix;
   }
-  static bool is_space(char const c) { return c == ' ' || c == '\n'; }
-  cstr skip_whitespace_front() const {
+  constexpr static bool is_space(char const c) { return c == ' ' || c == '\n'; }
+  constexpr cstr skip_whitespace_front() const {
     auto copy = (*this);
     while (copy.len != 0 && is_space(copy[0])) {
       ++copy;
     }
     return copy;
   }
-  cstr skip_whitespace_back() const {
+  constexpr cstr skip_whitespace_back() const {
     auto copy = (*this);
     while (copy.len != 0 && is_space(copy.str[copy.len - 1])) {
       --copy.len;
     }
     return copy;
   }
-  cstr trim() const { return skip_whitespace_front().skip_whitespace_back(); }
-  bool empty() const { return len == 0; }
-  size_t length() const { return len; }
-  char const* c_str() const { return str; }
-  char const* data() const { return str; }
-  size_t substr_offset(cstr needle) {
+  constexpr cstr trim() const {
+    return skip_whitespace_front().skip_whitespace_back();
+  }
+  constexpr bool empty() const { return len == 0; }
+  constexpr size_t length() const { return len; }
+  constexpr char const* c_str() const { return str; }
+  constexpr char const* data() const { return str; }
+  constexpr size_t substr_offset(cstr needle) {
     for (size_t i = 0; i < len; ++i) {
       if (substr(i).starts_with(needle)) {
         return i;
@@ -129,14 +134,14 @@ struct cstr {
     return std::numeric_limits<size_t>::max();
   }
   std::string to_str() const { return std::string(str, len); }
-  std::string_view view() const { return {str, len}; }
-  operator std::string_view() { return view(); }
+  constexpr std::string_view view() const { return {str, len}; }
+  constexpr operator std::string_view() { return view(); }
 
   char const* str;
   size_t len;
 };
 
-inline cstr get_until(cstr s, char delimiter) {
+constexpr inline cstr get_until(cstr s, char delimiter) {
   if (s.len == 0) {
     return s;
   }
@@ -147,16 +152,16 @@ inline cstr get_until(cstr s, char delimiter) {
   return {s.str, static_cast<size_t>(end - s.str)};
 }
 
-inline cstr strip_cr(cstr s) {
+constexpr inline cstr strip_cr(cstr s) {
   return (s && s[s.len - 1] == '\r') ? s.substr(0, size(s.len - 1)) : s;
 }
 
-inline cstr get_line(cstr s) { return strip_cr(get_until(s, '\n')); }
+constexpr inline cstr get_line(cstr s) { return strip_cr(get_until(s, '\n')); }
 
 enum class continue_t : std::uint8_t { kContinue, kBreak };
 
 template <typename Function>
-auto for_each_token(cstr s, char separator, Function&& f)
+constexpr auto for_each_token(cstr s, char separator, Function&& f)
     -> std::enable_if_t<std::is_same_v<decltype(f(cstr{})), void>> {
   while (s.len > 0) {
     cstr token = get_until(s, separator);
@@ -170,7 +175,7 @@ auto for_each_token(cstr s, char separator, Function&& f)
 }
 
 template <typename Function>
-auto for_each_token(cstr s, char separator, Function&& f)
+constexpr auto for_each_token(cstr s, char separator, Function&& f)
     -> std::enable_if_t<std::is_same_v<decltype(f(cstr{})), continue_t>> {
   while (s.len > 0) {
     cstr token = get_until(s, separator);
